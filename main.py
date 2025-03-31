@@ -1,12 +1,15 @@
 #import os
 #os.system("pip install -r requirements.txt")
 
-from colorama import init,Fore, Back, Style
+from colorama import init, Fore, Back, Style
 from threading import Thread
 from time import sleep
 import datetime
 import requests
 import json
+import signal
+import sys
+
 init()
 
 class User:
@@ -16,15 +19,16 @@ class User:
         self._running = False
 
         self._headers = {
-            "Authorization": "Bearer "+apikey,
+            "Authorization": "Bearer " + apikey,
             "Content-Type": "application/json",
             "Accept": "Application/vnd.pterodactyl.v1+json"
         }
 
         self._baseURL = "https://panel.sillydev.co.uk/api/"
 
-        r = requests.get(self._baseURL+"client/account", headers=self._headers)
-        if r.status_code != 200: exit("Error: Invalid token")
+        r = requests.get(self._baseURL + "client/account", headers=self._headers)
+        if r.status_code != 200:
+            exit("Error: Invalid token")
         self.userdata = r.json()["attributes"]
 
     def _log(self, text):
@@ -35,7 +39,8 @@ class User:
 
     def getBalance(self):
         r = requests.get("https://panel.sillydev.co.uk/api/client/store", headers=self._headers)
-        if r.status_code != 200: exit("Error: Invalid token")
+        if r.status_code != 200:
+            exit("Error: Invalid token")
         return r.json()["attributes"]["balance"]
     
     def mainloop(self):
@@ -43,16 +48,18 @@ class User:
             try:
                 for i in range(0, 60):
                     sleep(1)
-                    if not self._running: break
+                    if not self._running:
+                        break
 
-                r = requests.post(self._baseURL+"client/store/earn", headers=self._headers)
+                r = requests.post(self._baseURL + "client/store/earn", headers=self._headers)
                 if r.status_code == 204:
                     self._log(f"{self.getBalance()}$ | Coins redeemed")
                 elif r.status_code == 429:
                     self._log(f"Error 429 | Waiting 60s")
                     for i in range(0, 60):
                         sleep(1)
-                        if not self._running: break
+                        if not self._running:
+                            break
             except Exception as err:
                 self._log(f"Error while running: {err}")
 
@@ -64,7 +71,15 @@ class User:
 
     def stop(self):
         self._running = False
+        self._thread.join()
 
+def signal_handler(sig, frame):
+    print("\nDeteniendo todos los usuarios...")
+    for user in accs:
+        user.stop()
+    sys.exit(0)
+
+# Cargar usuarios
 users = json.load(open('users.json', 'r'))
 
 accs = []
@@ -73,7 +88,12 @@ for name, key in users.items():
     TEMP.start()
     accs.append(TEMP)
 
-input()
+# Configurar manejo de señales para una salida limpia
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
-for user in accs:
-    user.stop()
+print("Bot en ejecución. Presiona Ctrl+C para detener.")
+
+# Mantener el programa corriendo indefinidamente
+while True:
+    sleep(1)
