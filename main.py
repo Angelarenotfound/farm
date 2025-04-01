@@ -5,10 +5,9 @@ import datetime
 import requests
 import json
 from flask import Flask, jsonify
+import os
 
 app = Flask(__name__)
-
-# Inicializar Colorama
 init()
 
 class User:
@@ -22,8 +21,6 @@ class User:
             "Accept": "Application/vnd.pterodactyl.v1+json"
         }
         self._baseURL = "https://panel.sillydev.co.uk/api/"
-        
-        # Verificar token al iniciar
         r = requests.get(self._baseURL + "client/account", headers=self._headers)
         if r.status_code != 200:
             raise Exception("Token inválido")
@@ -47,7 +44,7 @@ class User:
     def main_loop(self):
         while self._running:
             try:
-                sleep(60)  # Esperar 60 segundos entre ejecuciones
+                sleep(60)
                 r = requests.post(self._baseURL + "client/store/earn", headers=self._headers)
                 if r.status_code == 204:
                     balance = self.get_balance()
@@ -68,7 +65,6 @@ class User:
         self._running = False
         self.thread.join()
 
-# Cargar usuarios desde users.json
 try:
     with open('users.json', 'r') as f:
         users = json.load(f)
@@ -76,7 +72,6 @@ except Exception as e:
     print(f"Error cargando users.json: {e}")
     users = {}
 
-# Iniciar todos los usuarios
 active_users = []
 for username, config in users.items():
     try:
@@ -87,7 +82,6 @@ for username, config in users.items():
     except Exception as e:
         print(f"❌ Error iniciando usuario {username}: {e}")
 
-# Endpoint de estado
 @app.route('/')
 def status():
     status_data = []
@@ -101,4 +95,5 @@ def status():
     return jsonify({"status": "active", "users": status_data})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
